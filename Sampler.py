@@ -274,7 +274,7 @@ class EvolutionScheduleGenerator:
                 })
             }
         }
-    RETURN_TYPES = ("LIST", "INT")
+    RETURN_TYPES = ("LIST")
     RETURN_NAMES = ("evolution_schedule",)
     FUNCTION = "generate_schedule"
 
@@ -294,33 +294,43 @@ class EvolutionScheduleGenerator:
 
 class GuidanceRewardsGenerator:
     """
-    多选打分函数，输出 guidance_rewards 列表（可选多个）。
+    通过多复选框按钮选择奖励函数，输出 guidance_rewards 列表。
     """
     CATEGORY = "Params"
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "rewards": ("LIST", "STRING", {
-                    "default": ["clip_score"],
-                    "choices": [
-                        "clip_score",
-                        "aesthetic_score",
-                        "pickscore",
-                        "image_reward",
-                        "clip_score_only",
-                        "human_preference"
-                    ],
-                    "tooltip": "多选一个或多个奖励函数"
-                })
+                "clip_score": ("BOOLEAN", {"default": False, "label": "Clip-Score"}),
+                "aesthetic_score": ("BOOLEAN", {"default": False, "label": "Aesthetic"}),
+                "pickscore": ("BOOLEAN", {"default": False, "label": "Pickscore"}),
+                "image_reward": ("BOOLEAN", {"default": False, "label": "ImageReward"}),
+                "clip_score_only": ("BOOLEAN", {"default": False, "label": "Clip-Score-only"}),
+                "human_preference": ("BOOLEAN", {"default": False, "label": "HumanPreference"}),
             }
         }
-    RETURN_TYPES = ("LIST", "STRING")
+    RETURN_TYPES = ("LIST")
     RETURN_NAMES = ("guidance_rewards",)
     FUNCTION = "generate_rewards"
 
-    def generate_rewards(self, rewards):
-        # 直接回传用户选择的列表
+    def generate_rewards(self, clip_score, aesthetic_score, pickscore,
+                         image_reward, clip_score_only, human_preference):
+        rewards = []
+        if clip_score:
+            rewards.append("clip_score")
+        if aesthetic_score:
+            rewards.append("aesthetic_score")
+        if pickscore:
+            rewards.append("pickscore")
+        if image_reward:
+            rewards.append("image_reward")
+        if clip_score_only:
+            rewards.append("clip_score_only")
+        if human_preference:
+            rewards.append("human_preference")
+        # 如果用户未选中任何奖励，默认回传 ["clip_score"]
+        if not rewards:
+            rewards = ["clip_score"]
         return (rewards,)
 
 # 注册节点
