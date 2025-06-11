@@ -1,1 +1,2 @@
 -e git+https://github.com/tgxs002/HPSv2.git@866735ecaae999fa714bd9edfa05aa2672669ee3#egg=hpsv2
+aesthetic-predictor-v2-5
