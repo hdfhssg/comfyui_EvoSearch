@@ -1,11 +1,8 @@
 import torch
 from comfy.samplers import KSampler
-# 假设 EvoSearch 库中提供了如下函数 
 from .evosearch.utils import do_eval 
 
-def common_ksampler(model, seed, steps, cfg, sampler_name, scheduler, positive, negative, latent, denoise=1.0, 
-                    disable_noise=False, start_step=None, last_step=None, force_full_denoise=False,
-                    if_pyramid_noise=False,device = "cpu", discount=0.2, max_layers=6,mode = "add",T=1.0):
+def common_ksampler(model, seed, steps, cfg, sampler_name, scheduler, positive, negative, latent, denoise=1.0, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False):
     latent_image = latent["samples"]
     latent_image = comfy.sample.fix_empty_latent_channels(model, latent_image)
 
@@ -13,7 +10,7 @@ def common_ksampler(model, seed, steps, cfg, sampler_name, scheduler, positive, 
         noise = torch.zeros(latent_image.size(), dtype=latent_image.dtype, layout=latent_image.layout, device="cpu")
     else:
         batch_inds = latent["batch_index"] if "batch_index" in latent else None
-        noise = prepare_noise(latent_image, seed, batch_inds, if_pyramid_noise,device, discount, max_layers,mode,T)
+        noise = comfy.sample.prepare_noise(latent_image, seed, batch_inds)
 
     noise_mask = None
     if "noise_mask" in latent:
