@@ -64,12 +64,33 @@ class EvoSearch_FLUX:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "generate"
 
-    def decode_latents_to_images(self, vae, latent_batch):
-        # 使用外部传入的 VAE 进行解码
-        decoded = vae.decode(latent_batch)
-        decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
-        #return [img.permute(1, 2, 0) for img in decoded]
-        return [img for img in decoded]
+   def decode_latents_to_images(self, vae, latent_batch):
+        """
+        将 latent 通过 VAE 解码到图像，并缩放到 224x224 的 PIL.Image 列表。
+        """
+        with torch.no_grad():
+            # 优先使用 decode_first_stage 输出 [N,3,H,W]
+            if hasattr(vae, "decode_first_stage"):
+                decoded = vae.decode_first_stage(latent_batch)
+            elif hasattr(vae, "decode_latents"):
+                decoded = vae.decode_latents(latent_batch)
+            else:
+                out = vae.decode(latent_batch)
+                decoded = out if isinstance(out, torch.Tensor) else out.get("sample", out.get("images"))
+
+        # 将张量值从 [-1,1] 或 [0,1] 归一化到 [0,255]
+        decoded = (decoded.clamp(-1,1) + 1) / 2  # now [0,1]
+        decoded = (decoded * 255).clamp(0,255).to(torch.uint8)
+
+        images = []
+        for img_tensor in decoded:  # img_tensor: [3,H,W]
+            # 转到 CPU 并变成 HWC numpy
+            np_img = img_tensor.cpu().permute(1, 2, 0).numpy()
+            pil = Image.fromarray(np_img)
+            # 缩放到 CLIP 常用大小
+            pil = pil.resize((224, 224), Image.BICUBIC)
+            images.append(pil)
+        return images
 
     def evaluate_images(self, prompt, images, guidance_rewards):
         results = do_eval(
@@ -131,7 +152,7 @@ class EvoSearch_FLUX:
             lat_batch = lat_batch.squeeze(1) if lat_batch.dim() == 5 else lat_batch
             #lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
             images = self.decode_latents_to_images(vae, lat_batch)
-            print(images[0].shape)
+            #print(images[0].shape)
             scores = self.evaluate_images(prompt_text, images, guidance_rewards)
 
             # 选出精英
