@@ -259,11 +259,75 @@ class EvoSearch_WAN:
         best_idx = max(range(len(scores)), key=lambda i: scores[i])
         best_latent = pop_latents[best_idx]
         return (best_latent,)
+class EvolutionScheduleGenerator:
+    """
+    输入一个逗号分隔的字符串，输出一个整数列表（evolution_schedule）。
+    """
+    CATEGORY = "Params"
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "schedule_str": ("STRING", {
+                    "default": "0,10,20,30,50",
+                    "tooltip": "请输入逗号分隔的步数列表，如 0,10,20,30,50"
+                })
+            }
+        }
+    RETURN_TYPES = ("LIST", "INT")
+    RETURN_NAMES = ("evolution_schedule",)
+    FUNCTION = "generate_schedule"
 
+    def generate_schedule(self, schedule_str):
+        # 解析逗号分隔的字符串为 int 列表
+        parts = [p.strip() for p in schedule_str.split(",") if p.strip() != ""]
+        schedule = []
+        for p in parts:
+            try:
+                schedule.append(int(p))
+            except ValueError:
+                continue
+        # 确保有终点为正整数
+        schedule = sorted(set(schedule))
+        return (schedule,)
+
+
+class GuidanceRewardsGenerator:
+    """
+    多选打分函数，输出 guidance_rewards 列表（可选多个）。
+    """
+    CATEGORY = "Params"
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "rewards": ("LIST", "STRING", {
+                    "default": ["clip_score"],
+                    "choices": [
+                        "clip_score",
+                        "aesthetic_score",
+                        "pickscore",
+                        "image_reward",
+                        "clip_score_only",
+                        "human_preference"
+                    ],
+                    "tooltip": "多选一个或多个奖励函数"
+                })
+            }
+        }
+    RETURN_TYPES = ("LIST", "STRING")
+    RETURN_NAMES = ("guidance_rewards",)
+    FUNCTION = "generate_rewards"
+
+    def generate_rewards(self, rewards):
+        # 直接回传用户选择的列表
+        return (rewards,)
 
 # 注册节点
 NODE_CLASS_MAPPINGS = {
     "EvoSearch_FLUX": EvoSearch_FLUX,
     "EvoSearch_SD21": EvoSearch_SD21,
     "EvoSearch_WAN": EvoSearch_WAN,
+    "EvolutionScheduleGenerator": EvolutionScheduleGenerator,
+    "GuidanceRewardsGenerator": GuidanceRewardsGenerator,
 }
