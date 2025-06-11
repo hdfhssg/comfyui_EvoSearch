@@ -128,7 +128,7 @@ class EvoSearch_FLUX:
             lat_batch = lat_batch = torch.cat([d['samples'] for d in latents], dim=0).to(device)
             lat_batch = lat_batch.squeeze(1) if lat_batch.dim() == 5 else lat_batch
             #lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-            images = self.decode_latents_to_images(vae, lat_batch)
+            images = self.decode_latents_to_images(vae, lat_batch).cpu().numpy()
             scores = self.evaluate_images(prompt_text, images, guidance_rewards)
 
             # 选出精英
@@ -146,7 +146,7 @@ class EvoSearch_FLUX:
         lat_batch = lat_batch = torch.cat([d['samples'] for d in latents], dim=0).to(device)
         lat_batch = lat_batch.squeeze(1) if lat_batch.dim() == 5 else lat_batch
         #lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-        images = self.decode_latents_to_images(vae, lat_batch)
+        images = self.decode_latents_to_images(vae, lat_batch).cpu().numpy()
         scores = self.evaluate_images(prompt_text, images, guidance_rewards)
         best_idx = scores.argmax()
         best_latent = latents[best_idx]
