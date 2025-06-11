@@ -64,7 +64,7 @@ class EvoSearch_FLUX:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "generate"
 
-   def decode_latents_to_images(self, vae, latent_batch):
+    def decode_latents_to_images(self, vae, latent_batch):
         """
         将 latent 通过 VAE 解码到图像，并缩放到 224x224 的 PIL.Image 列表。
         """
