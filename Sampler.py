@@ -72,15 +72,7 @@ class EvoSearch_FLUX:
         """
         to_pil = ToPILImage()
         with torch.no_grad():
-            # 使用 decode_first_stage 或 decode_latents
-            if hasattr(vae, "decode_first_stage"):
-                imgs = vae.decode_first_stage(latent_batch)
-            elif hasattr(vae, "decode_latents"):
-                imgs = vae.decode_latents(latent_batch)
-            else:
-                out = vae.decode(latent_batch)
-                # 如果是 dict
-                imgs = out.get("sample", out.get("images", out))
+            imgs = vae.decode_latents(latent_batch)
 
         # imgs 期望为 Tensor[N,3,H,W]
         if not isinstance(imgs, torch.Tensor):
