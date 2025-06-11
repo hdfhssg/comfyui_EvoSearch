@@ -125,9 +125,6 @@ class EvoSearch_FLUX:
         best_latent = latents[best_idx]
         return (best_latent,)
 
-
-from comfy.sample import common_ksampler
-
 class EvoSearch_SD21:
     CATEGORY = "sampling"  # or "evolutionary" etc.
     @classmethod
