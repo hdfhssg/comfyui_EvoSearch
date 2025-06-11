@@ -37,7 +37,7 @@ class EvoSearch_FLUX:
                 "positive": ("CONDITIONING",),
                 "negative": ("CONDITIONING",),
                 "latent": ("LATENT", {"tooltip": "必选初始潜在，格式为 {'samples': Tensor, 'batch_index': [...]}" }),
-                "vae": ("MODEL", {"tooltip": "用来解码 latent 的 VAE 模型"}),
+                "vae": ("VAE", {"tooltip": "用来解码 latent 的 VAE 模型"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff, "control_after_generate": True, "tooltip": "The random seed used for creating the noise."}),
                 "steps": ("INT", {"default": 20, "min": 1, "max": 10000, "tooltip": "The number of steps used in the denoising process."}),
                 "cfg": ("FLOAT", {"default": 8.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01, "tooltip": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality."}),
