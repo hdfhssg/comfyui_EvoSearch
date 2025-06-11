@@ -68,7 +68,7 @@ class EvoSearch_FLUX:
         # 使用外部传入的 VAE 进行解码
         decoded = vae.decode(latent_batch)
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
-        return [img.permute(2, 3, 1) for img in decoded]
+        return [img.permute(1, 2, 0) for img in decoded]
 
     def evaluate_images(self, prompt, images, guidance_rewards):
         results = do_eval(
