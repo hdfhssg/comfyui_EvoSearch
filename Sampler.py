@@ -72,7 +72,7 @@ class EvoSearch_FLUX:
         """
         to_pil = ToPILImage()
         with torch.no_grad():
-            imgs = vae.decode_latents(latent_batch)
+            imgs = vae.decode(latent_batch)
 
         # imgs 期望为 Tensor[N,3,H,W]
         if not isinstance(imgs, torch.Tensor):
