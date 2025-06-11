@@ -36,13 +36,15 @@ class EvoSearch_FLUX:
                 "model": ("MODEL",),
                 "positive": ("CONDITIONING",),
                 "negative": ("CONDITIONING",),
+                "latent": ("LATENT", {"tooltip": "必选初始潜在，格式为 {'samples': Tensor, 'batch_index': [...]}" }),
+                "vae": ("MODEL", {"tooltip": "用来解码 latent 的 VAE 模型"}),
                 "sampler_name": (KSampler.SAMPLERS,),
                 "scheduler": (KSampler.SCHEDULERS,),
                 "cfg": ("FLOAT", {"default": 7.5}),
                 "seed": ("INT", {"default": 0}),
                 "steps": ("INT", {"default": 50}),
                 "denoise": ("FLOAT", {"default": 1.0}),
-                "evolution_schedule": ("LIST", "INT", {"default": [0, 10, 20, 30, 50]}),
+                "evolution_schedule": ("LIST", "INT", {"default": [0,10,20,30,50]}),
                 "population_size": ("INT", {"default": 8}),
                 "elite_count": ("INT", {"default": 2}),
                 "guidance_rewards": ("LIST", "STRING", {
@@ -52,7 +54,7 @@ class EvoSearch_FLUX:
                         "image_reward", "clip_score_only", "human_preference"
                     ]
                 }),
-                "prompt_text": ("STRING", {"default": "a beautiful landscape"})
+                "prompt_text": ("STRING", {"default": "a beautiful landscape"}),
             }
         }
 
@@ -60,30 +62,48 @@ class EvoSearch_FLUX:
     FUNCTION = "generate"
 
     def decode_latents_to_images(self, vae, latent_batch):
-        # Convert latents to decoded RGB images in [0, 255] numpy format
+        # 使用外部传入的 VAE 进行解码
         decoded = vae.decode(latent_batch)['images']
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
-        images = [img.permute(1, 2, 0).cpu().numpy() for img in decoded]
-        return images
+        return [img.permute(1, 2, 0).cpu().numpy() for img in decoded]
 
-    def generate(self, model, positive, negative, sampler_name, scheduler, cfg, seed,
-                 steps, denoise, evolution_schedule, population_size, elite_count,
-                 guidance_reward, prompt_text):
+    def evaluate_images(self, prompt, images, guidance_rewards):
+        results = do_eval(
+            prompt=[prompt] * len(images),
+            images=images,
+            metrics_to_compute=guidance_rewards
+        )
+        scores = []
+        for i in range(len(images)):
+            vals = [results[metric][i] for metric in guidance_rewards]
+            scores.append(float(np.mean(vals)))
+        return np.array(scores)
+
+    def generate(self, model, positive, negative, latent, vae,
+                 sampler_name, scheduler, cfg, seed, steps, denoise,
+                 evolution_schedule, population_size, elite_count,
+                 guidance_rewards, prompt_text):
+
         device = model.load_device
-        latent_shape = (4, 64, 64)  # SD默认 latent shape
+        # 从输入 latent 中读取初始潜在
+        base_latent = latent["samples"].to(device)  # Tensor shape: [1, C, H, W]
+        batch_index = latent.get("batch_index", [0])
 
         schedule = sorted(set(int(s) for s in evolution_schedule))
         final_step = schedule[-1] if schedule else steps
 
-        # 初始化种群 latent
-        latents = [torch.randn(latent_shape, device=device) for _ in range(population_size)]
-        latents = [{"samples": l.unsqueeze(0), "batch_index": [0]} for l in latents]
+        # 初始化潜在种群：复制传入 latent
+        latents = [
+            {"samples": base_latent.clone(), "batch_index": batch_index}
+            for _ in range(population_size)
+        ]
 
         prev_step = 0
         for stage_idx, stage in enumerate(schedule):
+            # 分段采样
             new_latents = []
-            for i, latent in enumerate(latents):
-                sampled = common_ksampler(
+            for i, latent_dict in enumerate(latents):
+                out = common_ksampler(
                     model=model,
                     seed=seed + i + stage_idx * 1000,
                     steps=final_step,
@@ -92,41 +112,36 @@ class EvoSearch_FLUX:
                     scheduler=scheduler,
                     positive=positive,
                     negative=negative,
-                    latent=latent,
+                    latent=latent_dict,
                     denoise=denoise,
                     disable_pbar=True,
                     start_step=prev_step,
                     last_step=stage
                 )[0]
-                new_latents.append(sampled)
+                new_latents.append(out)
             latents = new_latents
             prev_step = stage
 
-            # decode并打分
+            # 解码并评估
             lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-            images = self.decode_latents_to_images(model.model.decode_first_stage, lat_batch)
-            results = do_eval(prompt=[prompt_text] * population_size, images=images,
-                              metrics_to_compute=[guidance_reward])
-            scores = results[guidance_reward]
-            scores = np.array(scores)
+            images = self.decode_latents_to_images(vae, lat_batch)
+            scores = self.evaluate_images(prompt_text, images, guidance_rewards)
 
-            # 精英选择 + 复制 + 添加微噪声
+            # 选出精英
             top_idx = scores.argsort()[::-1][:elite_count]
-            elite_latents = [latents[i]['samples'].clone() for i in top_idx]
+            elites = [latents[i]['samples'].clone() for i in top_idx]
 
+            # 重建种群
             latents = []
             for i in range(population_size):
-                base = elite_latents[i % elite_count].clone()
+                base = elites[i % elite_count].clone()
                 noise = torch.randn_like(base) * 0.01
-                latents.append({"samples": base + noise, "batch_index": [0]})
+                latents.append({"samples": base + noise, "batch_index": batch_index})
 
-        # 最终选择得分最高者
+        # 最终评估并返回最佳 latent
         lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-        images = self.decode_latents_to_images(model.model.decode_first_stage, lat_batch)
-        results = do_eval(prompt=[prompt_text] * population_size, images=images,
-                          metrics_to_compute=[guidance_reward])
-        scores = results[guidance_reward]
-        scores = np.array(scores)
+        images = self.decode_latents_to_images(vae, lat_batch)
+        scores = self.evaluate_images(prompt_text, images, guidance_rewards)
         best_idx = scores.argmax()
         best_latent = latents[best_idx]
         return (best_latent,)
