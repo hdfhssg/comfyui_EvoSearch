@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import clip
 import hpsv2
 from aesthetic_predictor_v2_5 import convert_v2_5_from_siglip
-from image_reward_utils import rm_load
+from .image_reward_utils import rm_load
 from transformers import AutoProcessor, AutoModel,AutoTokenizer,CLIPImageProcessor
 from torch import einsum
 from PIL import Image
