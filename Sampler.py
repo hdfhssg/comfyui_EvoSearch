@@ -46,11 +46,15 @@ class EvoSearch_FLUX:
                 "sampler_name": (KSampler.SAMPLERS,),
                 "scheduler": (KSampler.SCHEDULERS,),
                 "denoise": ("FLOAT", {"default": 1.0}),
-                "evolution_schedule": ("LIST", {"default": [0,10,20,30,50]}),
+                "evolution_schedule": ("LIST", "INT", {"default": [0,10,20,30,50]}),
                 "population_size": ("INT", {"default": 8}),
                 "elite_count": ("INT", {"default": 2}),
-                "guidance_rewards": ("LIST", {
+                "guidance_rewards": ("LIST", "STRING", {
                     "default": ["clip_score"],
+                    "choices": [
+                        "clip_score", "aesthetic_score", "pickscore",
+                        "image_reward", "clip_score_only", "human_preference"
+                    ]
                 }),
                 "prompt_text": ("STRING", {"default": "a beautiful landscape"}),
             }
@@ -61,7 +65,7 @@ class EvoSearch_FLUX:
 
     def decode_latents_to_images(self, vae, latent_batch):
         # 使用外部传入的 VAE 进行解码
-        decoded = vae.decode(latent_batch)['images']
+        decoded = vae.decode(latent_batch)
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
         return [img.permute(1, 2, 0).cpu().numpy() for img in decoded]
 
@@ -121,8 +125,8 @@ class EvoSearch_FLUX:
             prev_step = stage
 
             # 解码并评估
-            lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-            images = self.decode_latents_to_images(vae, lat_batch)
+            #lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
+            images = self.decode_latents_to_images(vae, latents)
             scores = self.evaluate_images(prompt_text, images, guidance_rewards)
 
             # 选出精英
@@ -137,8 +141,8 @@ class EvoSearch_FLUX:
                 latents.append({"samples": base + noise, "batch_index": batch_index})
 
         # 最终评估并返回最佳 latent
-        lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-        images = self.decode_latents_to_images(vae, lat_batch)
+        #lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
+        images = self.decode_latents_to_images(vae, latents)
         scores = self.evaluate_images(prompt_text, images, guidance_rewards)
         best_idx = scores.argmax()
         best_latent = latents[best_idx]
