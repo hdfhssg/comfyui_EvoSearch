@@ -1,101 +1,106 @@
 import torch
 from comfy.samplers import KSampler
-# 假设 EvoSearch 库中提供了如下函数
-from .evosearch.reward import aesthetic_score, clip_eval  
-
+# 假设 EvoSearch 库中提供了如下函数 
+from .evosearch.utils import do_eval 
+from comfy.sample import common_ksampler
+import numpy as np
 class EvoSearch_FLUX:
+    CATEGORY = "evolution"
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "model": ("MODEL",),                 # 已加载的 Flux 模型
-                "positive": ("CONDITIONING", {}),    # 正向提示
-                "negative": ("CONDITIONING", {}),    # 负向提示
-                "sampler_name": (KSampler.SAMPLERS,),# 采样器算法
-                "scheduler": (KSampler.SCHEDULERS,), # 调度器
-                "cfg": ("FLOAT", {"default": 7.5, "min": 0.0, "max": 15.0}),
-                "seed": ("INT", {"default": 42, "min": 0}),
-                "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
-                "evolution_schedule": ("STRING", {"default": "5,20,30,40"}), # 分段步数
-                "steps": ("INT", {"default": 40, "min": 1}),   # 总采样步数
-                "population_size": ("INT", {"default": 10, "min": 1}),
-                "elite_count": ("INT", {"default": 2, "min": 1}),
+                "model": ("MODEL",),
+                "positive": ("CONDITIONING",),
+                "negative": ("CONDITIONING",),
+                "sampler_name": (KSampler.SAMPLERS,),
+                "scheduler": (KSampler.SCHEDULERS,),
+                "cfg": ("FLOAT", {"default": 7.5}),
+                "seed": ("INT", {"default": 0}),
+                "steps": ("INT", {"default": 50}),
+                "denoise": ("FLOAT", {"default": 1.0}),
+                "evolution_schedule": ("LIST", "INT", {"default": [0, 10, 20, 30, 50]}),
+                "population_size": ("INT", {"default": 8}),
+                "elite_count": ("INT", {"default": 2}),
+                "guidance_reward": ("STRING", {"default": "clip_score"}),  # or 'aesthetic_score'
+                "prompt_text": ("STRING", {"default": "a beautiful landscape"})
             }
         }
+
     RETURN_TYPES = ("LATENT",)
-    RETURN_NAMES = ("latent_out",)
-    CATEGORY = "EvoSearch"
-    FUNCTION = "evo_search"
+    FUNCTION = "generate"
 
-    def evo_search(self, model, positive, negative, sampler_name, scheduler, cfg, seed, denoise, evolution_schedule, steps, population_size, elite_count):
-        # 解析演化调度 (如 "5,20,30,40")
-        try:
-            schedule = sorted([int(x) for x in evolution_schedule.split(",")])
-        except:
-            schedule = [0, steps]
-        if schedule[-1] < steps:
-            schedule.append(steps)
+    def decode_latents_to_images(self, vae, latent_batch):
+        # Convert latents to decoded RGB images in [0, 255] numpy format
+        decoded = vae.decode(latent_batch)['images']
+        decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
+        images = [img.permute(1, 2, 0).cpu().numpy() for img in decoded]
+        return images
 
-        # 初始化噪声潜在种群
-        latent_pop = []
-        # 假定 Flux 模型产生的潜在为 4 通道，大小可根据模型调整（此处以 64x64 为例）
-        for i in range(population_size):
-            noise = torch.randn(1, 4, 64, 64)  # 随机噪声
-            latent_pop.append({"samples": noise})
+    def generate(self, model, positive, negative, sampler_name, scheduler, cfg, seed,
+                 steps, denoise, evolution_schedule, population_size, elite_count,
+                 guidance_reward, prompt_text):
+        device = model.load_device
+        latent_shape = (4, 64, 64)  # SD默认 latent shape
 
-        best_score = -float('inf')
-        best_latent = {"samples": torch.zeros(1,4,64,64)}
+        schedule = sorted(set(int(s) for s in evolution_schedule))
+        final_step = schedule[-1] if schedule else steps
 
-        # 按照调度阶段循环演化
-        for gen in range(len(schedule)):
-            # 当前阶段步数
-            if gen == 0:
-                stage_steps = schedule[0]
-            else:
-                stage_steps = schedule[gen] - schedule[gen-1]
-            # 对每个个体进行 KSampler 采样
-            new_pop = []
-            scores = []
-            for latent in latent_pop:
-                out = KSampler.common_ksampler(
-                    model=model, seed=seed, steps=stage_steps, cfg=cfg,
-                    sampler_name=sampler_name, scheduler=scheduler,
-                    positive=positive, negative=negative,
-                    latent=latent, denoise=denoise
-                )
-                new_pop.append(out)
-                # 计算评分（可选用美学或CLIP匹配评估）
-                try:
-                    # 假设out["samples"]可传入评估函数
-                    score = aesthetic_score(out["samples"])
-                except:
-                    # 失败时采用0分
-                    score = 0.0
-                scores.append(score)
-                # 更新最佳 latent
-                if score > best_score:
-                    best_score = score
-                    best_latent = out
+        # 初始化种群 latent
+        latents = [torch.randn(latent_shape, device=device) for _ in range(population_size)]
+        latents = [{"samples": l.unsqueeze(0), "batch_index": [0]} for l in latents]
 
-            # 选择精英
-            if scores:
-                top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:elite_count]
-                elites = [new_pop[i] for i in top_idx]
-            else:
-                elites = new_pop[:elite_count]
+        prev_step = 0
+        for stage_idx, stage in enumerate(schedule):
+            new_latents = []
+            for i, latent in enumerate(latents):
+                sampled = common_ksampler(
+                    model=model,
+                    seed=seed + i + stage_idx * 1000,
+                    steps=final_step,
+                    cfg=cfg,
+                    sampler_name=sampler_name,
+                    scheduler=scheduler,
+                    positive=positive,
+                    negative=negative,
+                    latent=latent,
+                    denoise=denoise,
+                    disable_pbar=True,
+                    start_step=prev_step,
+                    last_step=stage
+                )[0]
+                new_latents.append(sampled)
+            latents = new_latents
+            prev_step = stage
 
-            # 生成下一代：保留精英并对其做微扰
-            latent_pop = elites.copy()
-            while len(latent_pop) < population_size:
-                for elite in elites:
-                    # 对精英进行随机扰动生成新个体
-                    mut_noise = torch.randn_like(elite["samples"]) * 0.02
-                    mutated = {"samples": elite["samples"] + mut_noise}
-                    latent_pop.append(mutated)
-                    if len(latent_pop) >= population_size:
-                        break
+            # decode并打分
+            lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
+            images = self.decode_latents_to_images(model.model.decode_first_stage, lat_batch)
+            results = do_eval(prompt=[prompt_text] * population_size, images=images,
+                              metrics_to_compute=[guidance_reward])
+            scores = results[guidance_reward]
+            scores = np.array(scores)
 
-        # 返回得分最高的潜在向量
+            # 精英选择 + 复制 + 添加微噪声
+            top_idx = scores.argsort()[::-1][:elite_count]
+            elite_latents = [latents[i]['samples'].clone() for i in top_idx]
+
+            latents = []
+            for i in range(population_size):
+                base = elite_latents[i % elite_count].clone()
+                noise = torch.randn_like(base) * 0.01
+                latents.append({"samples": base + noise, "batch_index": [0]})
+
+        # 最终选择得分最高者
+        lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
+        images = self.decode_latents_to_images(model.model.decode_first_stage, lat_batch)
+        results = do_eval(prompt=[prompt_text] * population_size, images=images,
+                          metrics_to_compute=[guidance_reward])
+        scores = results[guidance_reward]
+        scores = np.array(scores)
+        best_idx = scores.argmax()
+        best_latent = latents[best_idx]
         return (best_latent,)
 
 
