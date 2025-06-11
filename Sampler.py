@@ -64,7 +64,7 @@ class EvoSearch_FLUX:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "generate"
 
-   def decode_latents_to_images(self, vae, latent_batch):
+    def decode_latents_to_images(self, vae, latent_batch):
         # 使用外部传入的 VAE 进行解码
         decoded = vae.decode(latent_batch)
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
