@@ -89,13 +89,14 @@ class EvoSearch_FLUX:
         images = []
         for img_tensor in imgs:  # 每张 [3,H,W]
             # 确保是 3 通道
+            img_tensor = img_tensor.permute(1,2,0)
             if img_tensor.dim() != 3 or img_tensor.size(0) not in (3,4):
                 raise ValueError(f"解码后通道数异常: {tuple(img_tensor.size())}")
             # 如果是 4 通道 RGBA，去掉 alpha
             if img_tensor.size(0) == 4:
                 img_tensor = img_tensor[:3]
             # 转成 HWC numpy
-            np_img = img_tensor.permute(1,2,0).numpy()
+            np_img = img_tensor.numpy()
             # 确保 dtype
             if np_img.dtype != np.uint8:
                 np_img = np_img.astype(np.uint8)
