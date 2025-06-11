@@ -89,7 +89,7 @@ class EvoSearch_FLUX:
         images = []
         for img_tensor in imgs:  # 每张 [3,H,W]
             # 确保是 3 通道
-            img_tensor = img_tensor.permute(1,2,0)
+            img_tensor = img_tensor.permute(1,0,2)
             if img_tensor.dim() != 3 or img_tensor.size(0) not in (3,4):
                 raise ValueError(f"解码后通道数异常: {tuple(img_tensor.size())}")
             # 如果是 4 通道 RGBA，去掉 alpha
