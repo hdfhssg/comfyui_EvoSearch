@@ -1,7 +1,7 @@
 import torch
 from comfy.samplers import KSampler
 # 假设 EvoSearch 库中提供了如下函数
-from evosearch.reward import aesthetic_score, clip_eval  
+from .evosearch.reward import aesthetic_score, clip_eval  
 
 class EvoSearch_FLUX:
     @classmethod
