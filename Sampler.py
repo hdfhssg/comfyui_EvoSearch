@@ -46,10 +46,10 @@ class EvoSearch_FLUX:
                 "sampler_name": (KSampler.SAMPLERS,),
                 "scheduler": (KSampler.SCHEDULERS,),
                 "denoise": ("FLOAT", {"default": 1.0}),
-                "evolution_schedule": ("LIST", "INT", {"default": [0,10,20,30,50]}),
+                "evolution_schedule": ("LIST", {"default": [0,10,20,30,50]}),
                 "population_size": ("INT", {"default": 8}),
                 "elite_count": ("INT", {"default": 2}),
-                "guidance_rewards": ("LIST", "STRING", {
+                "guidance_rewards": ("LIST",  {
                     "default": ["clip_score"],
                     "choices": [
                         "clip_score", "aesthetic_score", "pickscore",
