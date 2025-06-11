@@ -64,7 +64,7 @@ class EvoSearch_FLUX:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "generate"
 
-     def decode_latents_to_images(self, vae, latent_batch):
+    def decode_latents_to_images(self, vae, latent_batch):
         """
         1. 确保 vae.decode_first_stage(latents) 输出 Tensor[N,3,H,W]
         2. 归一化到 [0,1]，再到 [0,255] uint8
