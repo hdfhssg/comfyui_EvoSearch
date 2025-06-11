@@ -64,31 +64,51 @@ class EvoSearch_FLUX:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "generate"
 
-    def decode_latents_to_images(self, vae, latent_batch):
+     def decode_latents_to_images(self, vae, latent_batch):
         """
-        将 latent 通过 VAE 解码到图像，并缩放到 224x224 的 PIL.Image 列表。
+        1. 确保 vae.decode_first_stage(latents) 输出 Tensor[N,3,H,W]
+        2. 归一化到 [0,1]，再到 [0,255] uint8
+        3. 通过 ToPILImage 且 permute 确保 HWC 顺序
         """
+        to_pil = ToPILImage()
         with torch.no_grad():
-            # 优先使用 decode_first_stage 输出 [N,3,H,W]
+            # 使用 decode_first_stage 或 decode_latents
             if hasattr(vae, "decode_first_stage"):
-                decoded = vae.decode_first_stage(latent_batch)
+                imgs = vae.decode_first_stage(latent_batch)
             elif hasattr(vae, "decode_latents"):
-                decoded = vae.decode_latents(latent_batch)
+                imgs = vae.decode_latents(latent_batch)
             else:
                 out = vae.decode(latent_batch)
-                decoded = out if isinstance(out, torch.Tensor) else out.get("sample", out.get("images"))
+                # 如果是 dict
+                imgs = out.get("sample", out.get("images", out))
 
-        # 将张量值从 [-1,1] 或 [0,1] 归一化到 [0,255]
-        decoded = (decoded.clamp(-1,1) + 1) / 2  # now [0,1]
-        decoded = (decoded * 255).clamp(0,255).to(torch.uint8)
+        # imgs 期望为 Tensor[N,3,H,W]
+        if not isinstance(imgs, torch.Tensor):
+            raise TypeError(f"VAE 解码返回类型 {type(imgs)}, 需为 torch.Tensor")
+
+        # 处理范围：如果是 [-1,1]，映射到 [0,1]
+        if imgs.min() < 0:
+            imgs = (imgs + 1) / 2
+        imgs = imgs.clamp(0,1)
+
+        # 转到 uint8
+        imgs = (imgs * 255).to(torch.uint8).cpu()
 
         images = []
-        for img_tensor in decoded:  # img_tensor: [3,H,W]
-            # 转到 CPU 并变成 HWC numpy
-            np_img = img_tensor.cpu().permute(1, 2, 0).numpy()
+        for img_tensor in imgs:  # 每张 [3,H,W]
+            # 确保是 3 通道
+            if img_tensor.dim() != 3 or img_tensor.size(0) not in (3,4):
+                raise ValueError(f"解码后通道数异常: {tuple(img_tensor.size())}")
+            # 如果是 4 通道 RGBA，去掉 alpha
+            if img_tensor.size(0) == 4:
+                img_tensor = img_tensor[:3]
+            # 转成 HWC numpy
+            np_img = img_tensor.permute(1,2,0).numpy()
+            # 确保 dtype
+            if np_img.dtype != np.uint8:
+                np_img = np_img.astype(np.uint8)
+            # 创建 PIL
             pil = Image.fromarray(np_img)
-            # 缩放到 CLIP 常用大小
-            pil = pil.resize((224, 224), Image.BICUBIC)
             images.append(pil)
         return images
 
