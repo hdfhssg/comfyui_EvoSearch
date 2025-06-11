@@ -4,7 +4,7 @@ from .evosearch.utils import do_eval
 import comfy
 import latent_preview
 from torchvision.transforms import ToPILImage
-
+from PIL import Image
 def common_ksampler(model, seed, steps, cfg, sampler_name, scheduler, positive, negative, latent, denoise=1.0, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False):
     latent_image = latent["samples"]
     latent_image = comfy.sample.fix_empty_latent_channels(model, latent_image)
