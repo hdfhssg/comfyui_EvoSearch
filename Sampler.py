@@ -87,7 +87,7 @@ class EvoSearch_FLUX:
         device = model.load_device
         # 从输入 latent 中读取初始潜在
         base_latent = latent["samples"].to(device)  # Tensor shape: [1, C, H, W]
-        batch_index = latent.get("batch_index", [0])
+        batch_index = latent["batch_index"] if "batch_index" in latent else None
 
         schedule = sorted(set(int(s) for s in evolution_schedule))
         final_step = schedule[-1] if schedule else steps
