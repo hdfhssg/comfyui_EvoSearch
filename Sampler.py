@@ -64,23 +64,11 @@ class EvoSearch_FLUX:
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "generate"
 
-    def decode_latents_to_images(self, vae, latent_batch):
-        """
-        使用 torchvision.transforms.ToPILImage 将 tensor 转成 PIL 图片，而不 .numpy()
-        latent_batch: Tensor[N,C,H,W] in [0,1]
-        """
-        to_pil = ToPILImage()
-        # decode_first_stage 返回 Tensor in [0,1]
-        with torch.no_grad():
-            decoded = vae.decode(latent_batch)
+   def decode_latents_to_images(self, vae, latent_batch):
+        # 使用外部传入的 VAE 进行解码
+        decoded = vae.decode(latent_batch)
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
-        images = []
-        for img_tensor in decoded:
-            # img_tensor: C×H×W, on GPU 或 CPU
-            img_cpu = img_tensor.cpu()
-            pil = to_pil(img_cpu)
-            images.append(pil)
-        return images
+        return [img.permute(2, 3, 1) for img in decoded]
 
     def evaluate_images(self, prompt, images, guidance_rewards):
         results = do_eval(
