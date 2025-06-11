@@ -3,6 +3,7 @@ from comfy.samplers import KSampler
 from .evosearch.utils import do_eval 
 import comfy
 import latent_preview
+from torchvision.transforms import ToPILImage
 
 def common_ksampler(model, seed, steps, cfg, sampler_name, scheduler, positive, negative, latent, denoise=1.0, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False):
     latent_image = latent["samples"]
@@ -64,10 +65,21 @@ class EvoSearch_FLUX:
     FUNCTION = "generate"
 
     def decode_latents_to_images(self, vae, latent_batch):
-        # 使用外部传入的 VAE 进行解码
-        decoded = vae.decode(latent_batch)
-        decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
-        return [img.permute(1, 2, 0) for img in decoded]
+        """
+        使用 torchvision.transforms.ToPILImage 将 tensor 转成 PIL 图片，而不 .numpy()
+        latent_batch: Tensor[N,C,H,W] in [0,1]
+        """
+        to_pil = ToPILImage()
+        # decode_first_stage 返回 Tensor in [0,1]
+        with torch.no_grad():
+            decoded = vae.decode(latent_batch)['images']
+        images = []
+        for img_tensor in decoded:
+            # img_tensor: C×H×W, on GPU 或 CPU
+            img_cpu = img_tensor.clamp(0,1).cpu()
+            pil = to_pil(img_cpu)
+            images.append(pil)
+        return images
 
     def evaluate_images(self, prompt, images, guidance_rewards):
         results = do_eval(
