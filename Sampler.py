@@ -67,7 +67,7 @@ class EvoSearch_FLUX:
         # 使用外部传入的 VAE 进行解码
         decoded = vae.decode(latent_batch)
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
-        return [img.permute(1, 2, 0).cpu().numpy() for img in decoded]
+        return [img.permute(1, 2, 0) for img in decoded]
 
     def evaluate_images(self, prompt, images, guidance_rewards):
         results = do_eval(
@@ -128,7 +128,7 @@ class EvoSearch_FLUX:
             lat_batch = lat_batch = torch.cat([d['samples'] for d in latents], dim=0).to(device)
             lat_batch = lat_batch.squeeze(1) if lat_batch.dim() == 5 else lat_batch
             #lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-            images = self.decode_latents_to_images(vae, lat_batch).cpu().numpy()
+            images = self.decode_latents_to_images(vae, lat_batch)
             scores = self.evaluate_images(prompt_text, images, guidance_rewards)
 
             # 选出精英
@@ -146,7 +146,7 @@ class EvoSearch_FLUX:
         lat_batch = lat_batch = torch.cat([d['samples'] for d in latents], dim=0).to(device)
         lat_batch = lat_batch.squeeze(1) if lat_batch.dim() == 5 else lat_batch
         #lat_batch = torch.cat([d['samples'] for d in latents], dim=0)
-        images = self.decode_latents_to_images(vae, lat_batch).cpu().numpy()
+        images = self.decode_latents_to_images(vae, lat_batch)
         scores = self.evaluate_images(prompt_text, images, guidance_rewards)
         best_idx = scores.argmax()
         best_latent = latents[best_idx]
