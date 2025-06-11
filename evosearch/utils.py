@@ -9,7 +9,6 @@ from .reward import (
     do_image_reward,
     do_human_preference_score,
     do_aesthetic_reward,
-    do_mps_reward,
     do_pickscore
 )
 
