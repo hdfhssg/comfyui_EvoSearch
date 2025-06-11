@@ -274,7 +274,7 @@ class EvolutionScheduleGenerator:
                 })
             }
         }
-    RETURN_TYPES = ("LIST")
+    RETURN_TYPES = ("LIST",)
     RETURN_NAMES = ("evolution_schedule",)
     FUNCTION = "generate_schedule"
 
@@ -309,7 +309,7 @@ class GuidanceRewardsGenerator:
                 "human_preference": ("BOOLEAN", {"default": False, "label": "HumanPreference"}),
             }
         }
-    RETURN_TYPES = ("LIST")
+    RETURN_TYPES = ("LIST",)
     RETURN_NAMES = ("guidance_rewards",)
     FUNCTION = "generate_rewards"
 
