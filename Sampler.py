@@ -45,7 +45,13 @@ class EvoSearch_FLUX:
                 "evolution_schedule": ("LIST", "INT", {"default": [0, 10, 20, 30, 50]}),
                 "population_size": ("INT", {"default": 8}),
                 "elite_count": ("INT", {"default": 2}),
-                "guidance_reward": ("STRING", {"default": "clip_score"}),  # or 'aesthetic_score'
+                "guidance_rewards": ("LIST", "STRING", {
+                    "default": ["clip_score"],
+                    "choices": [
+                        "clip_score", "aesthetic_score", "pickscore",
+                        "image_reward", "clip_score_only", "human_preference"
+                    ]
+                }),
                 "prompt_text": ("STRING", {"default": "a beautiful landscape"})
             }
         }
