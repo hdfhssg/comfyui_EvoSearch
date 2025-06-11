@@ -72,7 +72,7 @@ class EvoSearch_FLUX:
         to_pil = ToPILImage()
         # decode_first_stage 返回 Tensor in [0,1]
         with torch.no_grad():
-            decoded = vae.decode(latent_batch)['images']
+            decoded = vae.decode(latent_batch)
         images = []
         for img_tensor in decoded:
             # img_tensor: C×H×W, on GPU 或 CPU
