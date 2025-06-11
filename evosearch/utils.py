@@ -3,7 +3,7 @@ Utility functions for the FKD pipeline.
 """
 import torch
 
-from .rewards import (
+from .reward import (
     do_clip_score,
     do_clip_score_diversity,
     do_image_reward,
