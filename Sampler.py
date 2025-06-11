@@ -338,20 +338,20 @@ class GuidanceRewardsGenerator:
                          image_reward, clip_score_only, human_preference):
         rewards = []
         if clip_score:
-            rewards.append("clip_score")
+            rewards.append("Clip-Score")
         if aesthetic_score:
-            rewards.append("aesthetic_score")
+            rewards.append("Aesthetic")
         if pickscore:
-            rewards.append("pickscore")
+            rewards.append("Pickscore")
         if image_reward:
-            rewards.append("image_reward")
+            rewards.append("ImageReward")
         if clip_score_only:
-            rewards.append("clip_score_only")
+            rewards.append("Clip-Score-only")
         if human_preference:
-            rewards.append("human_preference")
+            rewards.append("HumanPreference")
         # 如果用户未选中任何奖励，默认回传 ["clip_score"]
         if not rewards:
-            rewards = ["clip_score"]
+            rewards = ["Clip-Score"]
         return (rewards,)
 
 # 注册节点
