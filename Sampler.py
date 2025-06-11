@@ -110,7 +110,7 @@ class EvoSearch_FLUX:
                     negative=negative,
                     latent=latent_dict,
                     denoise=denoise,
-                    disable_pbar=True,
+                    disable_noise=True,
                     start_step=prev_step,
                     last_step=stage
                 )[0]
