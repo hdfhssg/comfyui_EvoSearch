@@ -97,9 +97,6 @@ class EvoSearch_FLUX:
                 img_tensor = img_tensor[:3]
             # 转成 HWC numpy
             np_img = img_tensor.numpy()
-            # 确保 dtype
-            if np_img.dtype != np.uint8:
-                np_img = np_img.astype(np.uint8)
             # 创建 PIL
             print(np_img.size())
             pil = Image.fromarray(np_img)
