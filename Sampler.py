@@ -70,6 +70,7 @@ class EvoSearch_FLUX:
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
         # img像素太大，进行缩放,缩放到256*256
         for image in decoded:
+            image = image.permute(2, 1, 0)
             image = ToPILImage()(image)
             image = image.resize((256, 256))
             image = latent_preview.prepare_image(image)
