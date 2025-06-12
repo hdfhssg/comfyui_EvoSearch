@@ -65,43 +65,15 @@ class EvoSearch_FLUX:
     FUNCTION = "generate"
 
     def decode_latents_to_images(self, vae, latent_batch):
-        """
-        1. 确保 vae.decode_first_stage(latents) 输出 Tensor[N,3,H,W]
-        2. 归一化到 [0,1]，再到 [0,255] uint8
-        3. 通过 ToPILImage 且 permute 确保 HWC 顺序
-        """
-        to_pil = ToPILImage()
-        with torch.no_grad():
-            imgs = vae.decode(latent_batch)
-
-        # imgs 期望为 Tensor[N,3,H,W]
-        if not isinstance(imgs, torch.Tensor):
-            raise TypeError(f"VAE 解码返回类型 {type(imgs)}, 需为 torch.Tensor")
-
-        # 处理范围：如果是 [-1,1]，映射到 [0,1]
-        if imgs.min() < 0:
-            imgs = (imgs + 1) / 2
-        imgs = imgs.clamp(0,1)
-
-        # 转到 uint8
-        imgs = (imgs * 255).to(torch.uint8).cpu()
-
-        images = []
-        for img_tensor in imgs:  # 每张 [3,H,W]
-            # 确保是 3 通道
-            img_tensor = img_tensor.permute(2,1,0)
-            if img_tensor.dim() != 3 or img_tensor.size(0) not in (3,4):
-                raise ValueError(f"解码后通道数异常: {tuple(img_tensor.size())}")
-            # 如果是 4 通道 RGBA，去掉 alpha
-            if img_tensor.size(0) == 4:
-                img_tensor = img_tensor[:3]
-            # 转成 HWC numpy
-            np_img = img_tensor.numpy()
-            # 创建 PIL
-            print(np_img.size())
-            pil = Image.fromarray(np_img)
-            images.append(pil)
-        return images
+        # 使用外部传入的 VAE 进行解码
+        decoded = vae.decode(latent_batch)
+        decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
+        # img像素太大，进行缩放,缩放到256*256
+        for image in decoded:
+            image = ToPILImage()(image)
+            image = image.resize((256, 256))
+            image = latent_preview.prepare_image(image)
+        return [latent_preview.prepare_image(ToPILImage()(image)) for image in decoded]
 
     def evaluate_images(self, prompt, images, guidance_rewards):
         results = do_eval(
