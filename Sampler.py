@@ -69,12 +69,13 @@ class EvoSearch_FLUX:
         decoded = vae.decode(latent_batch)
         decoded = (decoded.clamp(0.0, 1.0) * 255).to(torch.uint8)
         # img像素太大，进行缩放,缩放到256*256
+        images = []
         for image in decoded:
             image = image.permute(2, 1, 0)
             image = ToPILImage()(image)
             image = image.resize((256, 256))
-            image = latent_preview.prepare_image(image)
-        return [latent_preview.prepare_image(ToPILImage()(image)) for image in decoded]
+            images.append(image)
+        return images
 
     def evaluate_images(self, prompt, images, guidance_rewards):
         results = do_eval(
