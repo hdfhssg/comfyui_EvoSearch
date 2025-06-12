@@ -101,6 +101,7 @@ class EvoSearch_FLUX:
             if np_img.dtype != np.uint8:
                 np_img = np_img.astype(np.uint8)
             # 创建 PIL
+            print(np_img.size())
             pil = Image.fromarray(np_img)
             images.append(pil)
         return images
