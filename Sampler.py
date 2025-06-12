@@ -84,6 +84,7 @@ class EvoSearch_FLUX:
             metrics_to_compute=guidance_rewards
         )
         scores = []
+        print(results)
         for i in range(len(images)):
             vals = [results[metric][i] for metric in guidance_rewards]
             scores.append(float(np.mean(vals)))
